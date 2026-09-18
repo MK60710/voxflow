@@ -1,0 +1,16 @@
+references/
+.build/
+*.app
+*.pem
+*.p12
+config.json
+.DS_Store
+.claude/
+.claude-state/
+
+# Internal planning/build-log docs — reference local dev paths, not meant
+# for a public repo (see plans/voxflow-windowed-ui.md Step 8). Untracked
+# going forward as of 2026-08-26; a full history rewrite happens as the
+# actual go-public step later, not here (repo is still private).
+plans/
+PROGRESS.md
