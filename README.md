@@ -1,56 +1,80 @@
 # VoxFlow
 
-A free macOS dictation app, built as a Wispr Flow replacement. Hold a hotkey anywhere, speak, release. Cleaned-up text appears in whatever app has focus. SwiftPM + Command Line Tools, no Xcode project and no Xcode required.
+Hi! I'm Mihir and this is VoxFlow.
 
-**Stack:** Groq Whisper large-v3-turbo (STT primary) with Apple SpeechAnalyzer as an on-device fallback; Groq gpt-oss-20b (cleanup primary) with a local Ollama model as fallback.
+I really like how Wispr Flow works and how good it is. I wanted a free and open source version out there. So I built one. Hold a hotkey anywhere on your Mac, talk, let go and clean text shows up wherever your cursor is.
 
-**Status:** feature-complete. Hold-to-talk dictation, text insertion, cloud and local STT failover, LLM cleanup, per-app tone, personal dictionary, snippets, voice commands, Insights and Transcript Log, all inside a full app window (sidebar navigation) that replaced the original menu-bar-only UI.
+Hopefully it helps you out. I'd be thrilled if people used it. Even happier if someone went and built their own version off of it. Go nuts with it, it's MIT licensed.
 
-## Requirements
+## What's actually happening under the hood
 
-- macOS 26 or later.
-- Xcode Command Line Tools with Swift 6.3.1+ (`xcode-select --install`). Full Xcode is not needed and is not installed for this project.
-- A free [Groq](https://console.groq.com) API key, used for both speech-to-text and cleanup. VoxFlow still works offline without one via the on-device Apple Speech fallback, just with reduced cleanup quality.
+Groq's Whisper model turns your speech into text. If you're offline or Groq's down, it quietly falls back to Apple's own Speech framework running right on your Mac. So it never just stops working. Then Groq's gpt-oss-20b cleans that raw text up (fixes the "umm"s and the rambling, all that), with a local Ollama model as backup if Groq's cleanup step ever goes down.
 
-## Setup from a fresh clone
+Where it's at right now: fully built out. Hold a key to talk, text gets typed straight into whatever app you're in, cloud and local failover on both the transcription and cleanup steps, a tone you can set per app, a personal dictionary for words it keeps messing up, snippets for stuff you say a lot, voice commands, a log of everything you've dictated and some stats on your usage, all inside a real window with a sidebar instead of just a menu bar dropdown.
+
+## What you need
+
+- macOS 26 or later
+- Xcode Command Line Tools with Swift 6.3.1+ (`xcode-select --install`). You don't need full Xcode for this
+- A free [Groq](https://console.groq.com) API key. Without one, VoxFlow still works, it just leans on the Apple Speech fallback and the cleanup isn't as sharp
+- Optional: [Ollama](https://ollama.com) running locally. It's just a backup for the cleanup step if Groq is ever down, feel free to skip it
+
+## Setting it up
 
 ```
 git clone <this repo>
 cd VoxFlow
 
-# One-time: create and trust the self-signed code-signing certificate that
-# keeps VoxFlow's identity stable across rebuilds (see docs/architecture.md's
-# "Code signing" section for why this matters). Safe to re-run: it's a
-# no-op if the certificate already exists.
+# First run only: this sets up the cert VoxFlow signs itself with so its
+# identity stays stable across rebuilds and macOS doesn't keep asking for
+# permissions again. Fine to run more than once, it just no-ops after.
 Scripts/setup-signing-cert.sh
 
-# One-time: store your Groq key in the login Keychain. VoxFlow only ever
-# reads this key at runtime (Sources/VoxFlow/KeychainCredentialStore.swift).
-# There's no in-app field to paste it into. It's never written to any file
-# in this repo.
+# First run only: puts your Groq key in your login Keychain. VoxFlow only
+# reads it at runtime, there's nowhere in the app to type it in and it
+# never gets written to a file anywhere in this repo.
 security add-generic-password -a "groq-api-key" -s "com.mihirk.voxflow" -w "<your-groq-key>" -U
 
-# Build, sign and launch
+# Optional, only if you want the local cleanup backup:
+ollama pull llama3.2:3b
+ollama serve
+
+# Build it, sign it, launch it
 Scripts/run.sh
 ```
 
-On first launch, VoxFlow shows a short onboarding window walking through the two permissions it needs (Microphone, Accessibility) with live status and System Settings links. Hold the hotkey (Right Option by default, Left Option, Left Command and Right Command are also selectable) anywhere to dictate. Click the waveform menu-bar icon and choose "Open VoxFlow" for the full app window (Insights, Transcript Log, Dictionary, Snippets, App Tones, Commands, Settings).
-
-## Build and run
+First time you open it, it walks you through the two permissions it needs. After that you're good: hold the hotkey (Right Option by default, though a few other keys work too) anywhere to dictate. Or click the menu bar icon and hit "Open VoxFlow" for the full window instead.
 
 ```
-Scripts/run.sh     # build, sign and launch the app
-Scripts/test.sh    # run the Swift Testing suite (bare `swift test` fails under Command Line Tools, see docs/architecture.md)
+Scripts/run.sh     # build, sign and launch
+Scripts/test.sh    # run the tests (plain `swift test` won't work here, docs/architecture.md has why)
 ```
 
-## Structure
+## Permissions it asks for
 
-- `Sources/VoxFlow`: menu bar app + main window. Hotkey/audio capture, text insertion, the window's sidebar screens (`MainWindow.swift` and the per-screen `*Screen.swift` files), `VoxFlowTheme.swift`, onboarding, all live system-integration code (AppKit, Keychain, Speech framework).
-- `Sources/VoxFlowCore`: pure logic. Transcription/cleanup engine protocols and failover chains, prompt assembly, command recognition, latency budgets. No AppKit or networking, this is what's unit-tested.
-- `Tests/`: Swift Testing suite (`Scripts/test.sh` to run).
-- `Scripts/`: build (`bundle.sh`), run (`run.sh`), test (`test.sh`), signing-cert setup (`setup-signing-cert.sh`), icon generation (`generate-icon.swift`, `test-icon.sh`) and cleanup-prompt quality eval (`eval-cleanup.sh`).
-- `Resources/`: the app icon (`AppIcon.icns`).
-- `docs/`: architecture (`architecture.md`) and reference research notes.
+- **Microphone** so it can actually hear you
+- **Accessibility** so the hotkey works anywhere and so it can type text into whatever app you're using
+
+That's it, no screen recording, no camera, nothing else.
+
+## Architecture, quick version
+
+It's a menu bar app (no Dock icon) plus a real window for everything else. When you hold the hotkey, it grabs audio, sends it off to get transcribed, runs the result through cleanup, then types it into whatever app was focused when you started talking, with a cloud option and a local fallback on both the transcription and cleanup steps so one bad network day doesn't take the whole thing down. There's also a command mode that catches specific phrases before cleanup and fires off a real keyboard shortcut instead of typing anything.
+
+Full breakdown, including the actual data flow diagram, is in `docs/architecture.md` if you want to dig in.
+
+## Where everything lives
+
+- `Sources/VoxFlow`: the app itself, hotkey/audio capture, text insertion, the window and its screens, onboarding, anything that touches AppKit, Keychain or the Speech framework
+- `Sources/VoxFlowCore`: the pure logic, no AppKit or networking in here, just the transcription/cleanup engines and their failover, prompt assembly and command recognition. This is what actually has tests
+- `Tests/`: the test suite
+- `Scripts/`: build, run, test, signing setup, icon generation, an eval script for cleanup prompt quality
+- `Resources/`: the app icon
+- `docs/`: the architecture doc and some reference notes
+
+## Contributing
+
+PRs welcome. It started as a personal project so don't expect a huge roadmap. But if you want to add something or fix a bug, go for it.
 
 ## License
 
