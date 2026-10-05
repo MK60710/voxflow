@@ -6,6 +6,10 @@ I really like how Wispr Flow works and how good it is. I wanted a free and open 
 
 Hopefully it helps you out. I'd be thrilled if people used it. Even happier if someone went and built their own version off of it. Go nuts with it, it's MIT licensed.
 
+![VoxFlow walkthrough: hold Right Option to talk, hands-free mode with Right Command, the menu bar dropdown and the app window](docs/images/voxflow-demo.gif)
+
+*A quick animated walkthrough: hold to talk, hands-free mode, the menu bar and the app window.*
+
 ## What's actually happening under the hood
 
 Groq's Whisper model turns your speech into text. If you're offline or Groq's down, it quietly falls back to Apple's own Speech framework running right on your Mac. So it never just stops working. Then Groq's gpt-oss-20b cleans that raw text up (fixes the "umm"s and the rambling, all that), with a local Ollama model as backup if Groq's cleanup step ever goes down.
